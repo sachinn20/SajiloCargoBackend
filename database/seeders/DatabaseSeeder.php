@@ -20,8 +20,7 @@ class DatabaseSeeder extends Seeder
         'email' => 'test1@example.com',
     ]);
 
-    // ✅ Add this line to call your test trip seeder
-    $this->call(TestTripSeeder::class);
+    
 }
 
 }

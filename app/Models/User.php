@@ -15,9 +15,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'phone',
+        'phone_number',
         'role',
-        'profile_photo', // Add this
+        'profile_photo',
     ];
     
     
@@ -29,4 +29,10 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    public function notifications()
+{
+    return $this->hasMany(Notification::class);
+}
+
 }

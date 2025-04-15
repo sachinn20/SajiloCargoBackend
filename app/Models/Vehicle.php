@@ -12,10 +12,16 @@ class Vehicle extends Model
         'user_id',
         'owner_name',
         'type',
-        'capacity',
         'plate',
+        'capacity',
         'license',
         'insurance',
+        'is_instant',
+        'status', // <- make sure this is here
+        'latitude',
+        'longitude' 
     ];
+    
+    
 
 }

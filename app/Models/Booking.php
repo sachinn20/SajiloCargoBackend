@@ -35,13 +35,17 @@ class Booking extends Model
         });
     }
 
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    // Booking.php
+public function user()
+{
+    return $this->belongsTo(User::class);
+}
 
-    public function trip()
-    {
-        return $this->belongsTo(Trip::class);
-    }
+public function trip()
+{
+    return $this->belongsTo(Trip::class);
+}
+
+
+
 }
