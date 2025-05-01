@@ -22,9 +22,12 @@ class Booking extends Model
         'amount',
         'no_of_packages',
         'receiver_name',
-        'receiver_number'
+        'receiver_number',
+        'payment_mode',            // ✅ New
+        'is_paid',                  // ✅ New
+        'khalti_transaction_id',    // ✅ New
     ];
-
+    
     // Automatically generate tracking number on create
     protected static function boot()
     {

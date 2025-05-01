@@ -23,7 +23,7 @@ class BookingController extends Controller
             'amount' => 'required|numeric',
             'no_of_packages' => 'required|integer|min:1',
             'receiver_name' => 'required|string|max:255',
-            'receiver_number' => 'required|string|max:10|min:10',
+            'receiver_number' => 'required|string|size:10',
         ]);
 
         $trip = Trip::findOrFail($validated['trip_id']);
@@ -46,11 +46,10 @@ class BookingController extends Controller
         if ($trip->user_id) {
             Notification::create([
                 'user_id' => $trip->user_id,
-                'actor_id' => $request->user()->id, // ✅ Sender is actor
+                'actor_id' => $request->user()->id,
                 'title' => 'New Booking Request',
                 'message' => $request->user()->name . ' requested your trip from ' . $trip->from_location . ' to ' . $trip->to_location,
             ]);
-            
         }
 
         return response()->json([
@@ -61,88 +60,83 @@ class BookingController extends Controller
     }
 
     public function instant(Request $request)
-{
-    $request->validate([
-        'pickup' => 'required|string',
-        'dropoff' => 'required|string',
-        'weight' => 'required|numeric',
-        'receiver_name' => 'required|string',
-        'receiver_number' => 'required|string|size:10',
-        'notes' => 'nullable|string',
-        'dimension' => 'nullable|string',
-        'latitude' => 'nullable|numeric',
-        'longitude' => 'nullable|numeric',
-    ]);
+    {
+        $request->validate([
+            'pickup' => 'required|string',
+            'dropoff' => 'required|string',
+            'weight' => 'required|numeric',
+            'receiver_name' => 'required|string',
+            'receiver_number' => 'required|string|size:10',
+            'notes' => 'nullable|string',
+            'dimension' => 'nullable|string',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
+        ]);
 
-    $vehicle = Vehicle::where('is_instant', true)
-        ->where('status', 'available')
-        ->where('capacity', '>=', $request->weight)
-        ->first();
+        $vehicle = Vehicle::where('is_instant', true)
+            ->where('status', 'available')
+            ->where('capacity', '>=', $request->weight)
+            ->first();
 
-    if (!$vehicle) {
-        return response()->json(['error' => 'No available instant vehicle found'], 404);
+        if (!$vehicle) {
+            return response()->json(['error' => 'No available instant vehicle found'], 404);
+        }
+
+        if ($request->has(['latitude', 'longitude'])) {
+            $vehicle->latitude = $request->latitude;
+            $vehicle->longitude = $request->longitude;
+        }
+
+        $vehicle->save();
+
+        $trip = Trip::create([
+            'user_id' => $vehicle->user_id,
+            'vehicle_id' => $vehicle->id,
+            'vehicle_name' => $vehicle->type,
+            'vehicle_plate' => $vehicle->plate,
+            'owner_name' => $vehicle->owner_name,
+            'from_location' => $request->pickup,
+            'to_location' => $request->dropoff,
+            'shipment_type' => 'individual',
+            'available_capacity' => $vehicle->capacity - $request->weight,
+            'status' => 'assigned',
+            'date' => now()->format('Y-m-d'),
+            'time' => now()->format('H:i'),
+        ]);
+
+        $booking = Booking::create([
+            'user_id' => $request->user()->id,
+            'trip_id' => $trip->id,
+            'tracking_no' => 'SC-' . strtoupper(Str::random(8)),
+            'status' => 'pending',
+            'shipment_type' => 'individual',
+            'weight' => $request->weight,
+            'dimension' => $request->dimension ?? '',
+            'notes' => $request->notes ?? 'Instant booking',
+            'receiver_name' => $request->receiver_name,
+            'receiver_number' => $request->receiver_number,
+            'amount' => 1000,
+            'no_of_packages' => 1,
+        ]);
+
+        Notification::create([
+            'user_id' => $trip->user_id,
+            'actor_id' => $request->user()->id,
+            'title' => 'Instant Booking Received',
+            'message' => $request->user()->name . ' booked an instant trip from ' . $trip->from_location . ' to ' . $trip->to_location,
+        ]);
+
+        return response()->json([
+            'message' => 'Instant booking successful',
+            'tracking_no' => $booking->tracking_no,
+            'booking' => $booking,
+            'trip' => $trip,
+        ]);
     }
-
-    if ($request->has(['latitude', 'longitude'])) {
-        $vehicle->latitude = $request->latitude;
-        $vehicle->longitude = $request->longitude;
-    }
-
-    $vehicle->save();
-
-    $trip = Trip::create([
-        'user_id' => $vehicle->user_id,
-        'vehicle_id' => $vehicle->id,
-        'vehicle_name' => $vehicle->type,
-        'vehicle_plate' => $vehicle->plate,
-        'owner_name' => $vehicle->owner_name,
-        'from_location' => $request->pickup,
-        'to_location' => $request->dropoff,
-        'shipment_type' => 'individual',
-        'available_capacity' => $vehicle->capacity - $request->weight,
-        'status' => 'assigned',
-        'date' => now()->format('Y-m-d'),
-        'time' => now()->format('H:i'),
-    ]);
-
-    $booking = Booking::create([
-        'user_id' => $request->user()->id,
-        'trip_id' => $trip->id,
-        'tracking_no' => 'SC-' . strtoupper(Str::random(8)),
-        'status' => 'pending',
-        'shipment_type' => 'individual',
-        'weight' => $request->weight,
-        'dimension' => $request->dimension ?? '',
-        'notes' => $request->notes ?? 'Instant booking',
-        'receiver_name' => $request->receiver_name,
-        'receiver_number' => $request->receiver_number,
-        'amount' => 1000,
-        'no_of_packages' => 1,
-    ]);
-
-    // ✅ ADD THIS BLOCK
-    Notification::create([
-        'user_id' => $trip->user_id,
-        'actor_id' => $request->user()->id, // ✅ Sender is actor
-        'title' => 'Instant Booking Received',
-        'message' => $request->user()->name . ' booked an instant trip from ' . $trip->from_location . ' to ' . $trip->to_location,
-    ]);
-    
-
-    return response()->json([
-        'message' => 'Instant booking successful',
-        'tracking_no' => $booking->tracking_no,
-        'booking' => $booking,
-        'trip' => $trip,
-    ]);
-}
-
 
     public function received(Request $request)
     {
         try {
-            \Log::info('Fetching received bookings for user: ' . $request->user()->id);
-
             $bookings = Booking::with([
                 'user:id,name,phone_number',
                 'trip:id,user_id,from_location,to_location,date,time,vehicle_name,vehicle_plate'
@@ -153,11 +147,8 @@ class BookingController extends Controller
             ->latest()
             ->get();
 
-            \Log::info('Total received bookings: ' . $bookings->count());
-
             return response()->json($bookings);
         } catch (\Exception $e) {
-            \Log::error('Error in /received-bookings: ' . $e->getMessage());
             return response()->json(['error' => 'Something went wrong'], 500);
         }
     }
@@ -176,7 +167,6 @@ class BookingController extends Controller
 
             return response()->json(['data' => $bookings]);
         } catch (\Exception $e) {
-            \Log::error('Error fetching my bookings: ' . $e->getMessage());
             return response()->json(['error' => 'Something went wrong'], 500);
         }
     }
@@ -249,17 +239,13 @@ class BookingController extends Controller
         }
 
         Notification::create([
-            'user_id' => $booking->user_id, // Customer
-            'actor_id' => $request->user()->id, // Vehicle Owner is the actor
+            'user_id' => $booking->user_id,
+            'actor_id' => $request->user()->id,
             'title' => 'Booking ' . ucfirst($booking->status),
             'message' => 'Your booking from ' . $booking->trip->from_location . ' to ' . $booking->trip->to_location . ' has been ' . $booking->status,
         ]);
-        
 
-        return response()->json([
-            'message' => 'Booking status updated',
-            'booking' => $booking
-        ]);
+        return response()->json(['message' => 'Booking status updated', 'booking' => $booking]);
     }
 
     public function track($trackingNo)
@@ -274,4 +260,5 @@ class BookingController extends Controller
 
         return response()->json($booking);
     }
+
 }

@@ -3,11 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\User;
 
 class Vehicle extends Model
 {
-    //
-    // app/Models/Vehicle.php
     protected $fillable = [
         'user_id',
         'owner_name',
@@ -17,11 +16,14 @@ class Vehicle extends Model
         'license',
         'insurance',
         'is_instant',
-        'status', // <- make sure this is here
+        'status',
         'latitude',
-        'longitude' 
+        'longitude',
     ];
-    
-    
 
+    // ✅ Relationship: Vehicle belongs to a User
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }

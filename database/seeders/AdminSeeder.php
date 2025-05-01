@@ -11,11 +11,12 @@ class AdminSeeder extends Seeder
     public function run()
     {
         User::updateOrCreate(
-            ['email' => 'admin@sajilocargo.com'],
+            ['email' => 'admin@sajilocargo.com'], // prevent duplication
             [
                 'name' => 'Super Admin',
-                'password' => Hash::make('Admin@123'),
-                'role' => 'admin',
+                'email' => 'admin@sajilocargo.com',
+                'password' => Hash::make('Admin@123'), // set your own strong password
+                'role' => 'admin', // make sure your User model and DB has this field
             ]
         );
     }

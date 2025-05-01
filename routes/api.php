@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\AuthController;
 
 use App\Http\Controllers\API\VehicleController;
 use App\Http\Controllers\API\TripController;
@@ -12,11 +13,21 @@ use App\Http\Controllers\API\BookingController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\NotificationController;
 
+
+
 // ==========================
 // ✅ Public Routes
 // ==========================
 Route::post('/register', [RegisteredUserController::class, 'store']);
 Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+
+// Forgot password (send reset link)
+Route::post('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetLinkController::class, 'store']);
+
+// Reset password
+Route::post('/reset-password', [\App\Http\Controllers\Auth\NewPasswordController::class, 'store']);
+
+
 
 // ==========================
 // 🔒 Protected Routes (Sanctum Auth)
@@ -58,6 +69,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my-bookings', [BookingController::class, 'myBookings']);
     Route::delete('/bookings/{id}', [BookingController::class, 'destroy']);
     Route::put('/bookings/{id}', [BookingController::class, 'updateBooking']);
+
+
+
 
 
 
