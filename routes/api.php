@@ -12,6 +12,7 @@ use App\Http\Controllers\API\TripController;
 use App\Http\Controllers\API\BookingController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\NotificationController;
+use App\Http\Controllers\Auth\NewPasswordController;
 
 
 
@@ -86,3 +87,9 @@ Route::middleware('auth:sanctum')->group(function () {
 // 🔍 Trip Search (Public access)
 // ==========================
 Route::post('/trips/search', [TripController::class, 'search']);
+
+
+
+
+Route::post('/verify-token', [NewPasswordController::class, 'verifyToken'])
+    ->middleware('guest');

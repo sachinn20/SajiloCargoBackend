@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Response;
 use App\Models\User;
 
+use Illuminate\Support\Facades\Mail;
+use App\Mail\PasswordResetTokenMail;
+
 class PasswordResetLinkController extends Controller
 {
     /**
@@ -49,17 +52,7 @@ public function store(Request $request): JsonResponse
         ]
     );
 
-    // Optionally send email here (currently commented out)
-    /*
-    $subject = 'Password Reset Token';
-    $view = 'resetPassword';
-    $data = [
-        'token' => $token,
-        'subject' => $subject,
-        'messageBody' => "Your password reset token is: $token. The token is valid for 15 minutes."
-    ];
-    MailHelper::sendEmail($request->email, $subject, $view, $data);
-    */
+    Mail::to($request->email)->send(new PasswordResetTokenMail($request->email, $token));
 
     return response()->json([
         'message' => 'A password reset token has been generated.',
