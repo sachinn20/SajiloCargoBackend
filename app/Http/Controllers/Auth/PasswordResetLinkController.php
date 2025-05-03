@@ -7,6 +7,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Response;
+use App\Models\User;
 
 class PasswordResetLinkController extends Controller
 {
@@ -15,25 +19,53 @@ class PasswordResetLinkController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): JsonResponse
-    {
-        $request->validate([
-            'email' => ['required', 'email'],
-        ]);
+ 
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+public function store(Request $request): JsonResponse
+{
+    // Validate the email field
+    $request->validate([
+        'email' => ['required', 'email'],
+    ]);
 
-        if ($status != Password::RESET_LINK_SENT) {
-            throw ValidationException::withMessages([
-                'email' => [__($status)],
-            ]);
-        }
+    // Check if the user exists
+    $user = User::where('email', $request->email)->first();
 
-        return response()->json(['status' => __($status)]);
+    if (!$user) {
+        return response()->json([
+            'message' => 'The provided email does not exist in our records.',
+        ], 404);
     }
+
+    // Generate a 6-digit token
+    $token = random_int(100000, 999999);
+
+    // Save or update the token in the password_reset_tokens table
+    DB::table('password_reset_tokens')->updateOrInsert(
+        ['email' => $request->email],
+        [
+            'token' => $token,
+            'created_at' => now(),
+        ]
+    );
+
+    // Optionally send email here (currently commented out)
+    /*
+    $subject = 'Password Reset Token';
+    $view = 'resetPassword';
+    $data = [
+        'token' => $token,
+        'subject' => $subject,
+        'messageBody' => "Your password reset token is: $token. The token is valid for 15 minutes."
+    ];
+    MailHelper::sendEmail($request->email, $subject, $view, $data);
+    */
+
+    return response()->json([
+        'message' => 'A password reset token has been generated.',
+        'email' => $request->email,
+        'token' => $token, // Optional to send to frontend (only for testing)
+    ], 200);
+}
+
 }

@@ -5,8 +5,7 @@
 @section('content')
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0 text-primary fw-bold">User Management</h2>
-
+        <h2 class="fw-bold" style="color:#004aad;"><i class="fa-solid fa-users me-2"></i>User Management</h2>
     </div>
 
     @if(session('success'))
@@ -16,29 +15,54 @@
         </div>
     @endif
 
-    <div class="card shadow-sm border-0">
+    <!-- Search & Filter -->
+    <form method="GET" class="mb-4">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search by name or email" value="{{ request('search') }}">
+            </div>
+            <div class="col-md-3">
+                <select name="role" class="form-select">
+                    <option value="">All Roles</option>
+                    <option value="customer" {{ request('role') == 'customer' ? 'selected' : '' }}>Customer</option>
+                    <option value="vehicle_owner" {{ request('role') == 'vehicle_owner' ? 'selected' : '' }}>Vehicle Owner</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100"><i class="fa fa-search me-1"></i>Search</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary w-100"><i class="fa fa-rotate-left me-1"></i>Reset</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="card shadow-lg border-0 rounded-4">
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="bg-primary text-white">
                         <tr>
-                            <th class="ps-3">#</th>
+                            <th class="ps-4">#</th>
                             <th>Profile</th>
                             <th>Name</th>
                             <th>Phone</th>
                             <th>Role</th>
-                            <th class="text-end pe-3">Actions</th>
+                            <th class="text-end pe-4">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                    @forelse($users as $user)
+                        @forelse($users as $user)
                         <tr>
-                            <td class="ps-3">{{ $loop->iteration }}</td>
+                            <td class="ps-4">{{ $loop->iteration + ($users->currentPage() - 1) * $users->perPage() }}</td>
                             <td>
                                 @if($user->profile_photo)
-                                    <div class="avatar-wrapper">
-                                        <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="Profile" class="rounded-circle shadow-sm" width="50" height="50">
-                                    </div>
+                                    <img src="{{ asset('storage/' . $user->profile_photo) }}"
+                                         alt="Profile Photo"
+                                         class="rounded-circle avatar-img shadow-sm"
+                                         width="50" height="50"
+                                         onclick="showFullImage(this.src)"
+                                         style="cursor: default;">
                                 @else
                                     <div class="avatar-placeholder bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
                                         <i class="fa-solid fa-user text-secondary"></i>
@@ -46,73 +70,81 @@
                                 @endif
                             </td>
                             <td>
-                                <div class="fw-bold">{{ $user->name }}</div>
-                                <div class="small text-muted">{{ $user->email }}</div>
+                                <div class="fw-semibold">{{ $user->name }}</div>
+                                <div class="text-muted small">{{ $user->email }}</div>
                             </td>
                             <td>{{ $user->phone_number ?? '-' }}</td>
                             <td>
-                                @if($user->role == 'admin')
-                                    <span class="badge bg-danger">{{ ucfirst($user->role) }}</span>
-                                @elseif($user->role == 'staff')
-                                    <span class="badge bg-info">{{ ucfirst($user->role) }}</span>
-                                @else
-                                    <span class="badge bg-secondary">{{ ucfirst($user->role) }}</span>
-                                @endif
+                                <span class="badge text-white"
+                                      style="background-color:
+                                          {{ 
+                                             ($user->role === 'vehicle_owner' ? '#6f42c1' : '#6c757d') }}">
+                                    {{ ucfirst(str_replace('_', ' ', $user->role)) }}
+                                </span>
                             </td>
-                            <td>
-                                <div class="d-flex justify-content-end gap-2 pe-3">
-                                    <form method="POST" action="{{ route('admin.users.delete', $user->id) }}" onsubmit="return confirm('Are you sure you want to delete this user?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="fa-solid fa-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
+                            <td class="text-end pe-4">
+                                <form method="POST" action="{{ route('admin.users.delete', $user->id) }}" onsubmit="return confirm('Delete this user permanently?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
-                    @empty
+                        @empty
                         <tr>
-                            <td colspan="6" class="text-center py-4">
-                                <div class="d-flex flex-column align-items-center">
-                                    <i class="fa-solid fa-users text-muted mb-2" style="font-size: 2rem;"></i>
-                                    <p class="mb-0">No users found.</p>
-                                </div>
+                            <td colspan="6" class="text-center py-5">
+                                <i class="fa-solid fa-users text-muted mb-2" style="font-size: 2rem;"></i>
+                                <p class="mb-0">No users found.</p>
                             </td>
                         </tr>
-                    @endforelse
+                        @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
+
+        <!-- Pagination -->
+        <div class="card-footer bg-white py-3 px-4">
+            {{ $users->withQueryString()->links() }}
+        </div>
     </div>
 </div>
 
-<!-- Responsive table styles -->
+<!-- Image Lightbox Modal -->
+<div id="imageModal" class="image-modal" onclick="closeImage()">
+    <img id="modalImage" src="" alt="Full Image">
+</div>
+
 <style>
-    @media (max-width: 767.98px) {
-        .table-responsive {
-            border-radius: 0.25rem;
-        }
-
-        .table th:not(:first-child):not(:last-child),
-        .table td:not(:first-child):not(:last-child) {
-            display: none;
-        }
-
-        .table th:first-child,
-        .table td:first-child {
-            width: 20%;
-        }
-
-        .table th:last-child,
-        .table td:last-child {
-            width: 30%;
-        }
-
-        .table td:first-child {
-            font-weight: bold;
-        }
+    .image-modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85);
+        z-index: 1050;
+        justify-content: center;
+        align-items: center;
+    }
+    .image-modal img {
+        max-height: 90%;
+        max-width: 90%;
+        border-radius: 8px;
+        box-shadow: 0 0 20px rgba(0,0,0,0.5);
     }
 </style>
+
+<script>
+    function showFullImage(src) {
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        modal.style.display = 'flex';
+        modalImg.src = src;
+    }
+    function closeImage() {
+        document.getElementById('imageModal').style.display = 'none';
+    }
+</script>
 @endsection
