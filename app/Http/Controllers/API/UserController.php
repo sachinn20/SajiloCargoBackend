@@ -39,7 +39,8 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'phone_number' => 'required|string|max:20',
-            'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+
         ]);
     
         if ($validator->fails()) {

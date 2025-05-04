@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // 👤 User Profile
     Route::get('/user', [UserController::class, 'user']);
     Route::get('/profile', [UserController::class, 'getProfile']);
+
     Route::post('/profile/update', [UserController::class, 'updateProfile']);
 });
 
