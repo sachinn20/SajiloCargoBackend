@@ -25,7 +25,7 @@ class NewPasswordController extends Controller
      */
     public function store(Request $request)
 {
-    // Validate input manually
+    // Validate input
     $validator = Validator::make($request->all(), [
         'email' => 'required|email',
         'password' => ['required', 'confirmed', Rules\Password::defaults()],
@@ -47,6 +47,13 @@ class NewPasswordController extends Controller
         ], 404);
     }
 
+    // Check if new password is same as old password
+    if (Hash::check($request->password, $user->password)) {
+        return response()->json([
+            'message' => 'You cannot use your old password.',
+        ], 422);
+    }
+
     // Update the password
     $user->password = Hash::make($request->password);
     $user->save();
@@ -56,6 +63,7 @@ class NewPasswordController extends Controller
         'email' => $request->email,
     ]);
 }
+
 
     public function verifyToken(Request $request)
 {
