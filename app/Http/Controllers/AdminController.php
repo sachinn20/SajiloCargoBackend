@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\Trip;
 use App\Models\Booking;
+use App\Models\PricingSetting;
+use Illuminate\Support\Facades\Response;
 
 
 
@@ -142,8 +144,65 @@ class AdminController extends Controller
     // PAYMENTS MANAGEMENT
     // =======================
 
-    public function payments()
-    {
-        return view('admin.pages.payment'); // static for now
+  public function payments(Request $request)
+{
+    $query = Booking::with('user');
+
+    // Apply filters
+    if ($request->filled('search')) {
+        $query->where('tracking_no', 'like', '%' . $request->search . '%');
     }
+
+    if ($request->filled('payment_status')) {
+        $query->where('is_paid', $request->payment_status);
+    }
+
+    if ($request->filled('payment_mode')) {
+        $query->where('payment_mode', $request->payment_mode);
+    }
+
+    // Clone query to calculate stats
+    $statsQuery = clone $query;
+    $paidCount = (clone $statsQuery)->where('is_paid', true)->count();
+    $unpaidCount = (clone $statsQuery)->where('is_paid', false)->count();
+    $totalAmount = (clone $statsQuery)->sum('amount');
+
+    // Get paginated filtered bookings
+    $bookings = $query->orderBy('created_at', 'desc')->paginate(10);
+
+    // Pricing config
+    $pricing = PricingSetting::first();
+
+    return view('admin.pages.payment', compact(
+        'bookings',
+        'pricing',
+        'paidCount',
+        'unpaidCount',
+        'totalAmount'
+    ));
+}
+
+
+
+public function updatePricing(Request $request)
+{
+    $request->validate([
+        'price_per_km' => 'required|numeric|min:0',
+        'price_per_kg' => 'required|numeric|min:0',
+    ]);
+
+    $pricing = PricingSetting::first();
+
+    if (!$pricing) {
+        $pricing = new PricingSetting();
+    }
+
+    $pricing->price_per_km = $request->price_per_km;
+    $pricing->price_per_kg = $request->price_per_kg;
+    $pricing->save();
+
+    return back()->with('success', 'Pricing updated successfully.');
+}
+
+
 }

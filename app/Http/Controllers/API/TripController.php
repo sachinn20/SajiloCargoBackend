@@ -78,44 +78,60 @@ class TripController extends Controller
     }
 
     public function search(Request $request)
-    {
-        $request->validate([
-            'from_location' => 'required|string',
-            'to_location' => 'required|string',
-            'date' => 'required|date',
-            'shipment_type' => 'required|in:individual,group',
-            'capacity' => 'nullable|numeric'
-        ]);
+        {
+            $request->validate([
+                'from_location' => 'required|string',
+                'to_location' => 'required|string',
+                'date' => 'required|date',
+                'shipment_type' => 'required|in:individual,group',
+                'capacity' => 'nullable|numeric'
+            ]);
 
-        $from = trim(strtolower($request->from_location));
-        $to = trim(strtolower($request->to_location));
-        $date = $request->date;
-        $shipmentType = $request->shipment_type;
-        $capacity = $request->capacity;
+            $from = trim(strtolower($request->from_location));
+            $to = trim(strtolower($request->to_location));
+            $date = $request->date;
+            $shipmentType = $request->shipment_type;
+            $capacity = $request->capacity;
 
-        \Log::info('Trip Search Inputs', compact('from', 'to', 'date', 'shipmentType', 'capacity'));
+            \Log::info('Trip Search Inputs', compact('from', 'to', 'date', 'shipmentType', 'capacity'));
 
-        $query = Trip::query();
-        $query->whereRaw('LOWER(from_location) LIKE ?', ["%$from%"])
-              ->whereRaw('LOWER(to_location) LIKE ?', ["%$to%"])
-              ->whereDate('date', '>=', $date)
-              ->where('shipment_type', $shipmentType)
-              ->where('status', Trip::STATUS_PENDING);
+            $query = Trip::whereHas('vehicle', function ($q) {
+                $q->where('is_instant', false); // ✅ exclude instant trips
+            })
+            ->whereRaw('LOWER(from_location) LIKE ?', ["%$from%"])
+            ->whereRaw('LOWER(to_location) LIKE ?', ["%$to%"])
+            ->whereDate('date', '>=', $date)
+            ->where('shipment_type', $shipmentType)
+            ->where('status', Trip::STATUS_PENDING);
 
-        if ($shipmentType === 'group' && $request->filled('capacity')) {
-            $query->where('available_capacity', '>=', (float) $capacity);
+            if ($shipmentType === 'group' && $request->filled('capacity')) {
+                $query->where('available_capacity', '>=', (float) $capacity);
+            }
+
+            $trips = $query->get();
+
+            \Log::info('Matching trips count:', ['count' => $trips->count()]);
+
+            // 🟨 Fallback: only future trips, still non-instant
+            if ($trips->isEmpty()) {
+                \Log::warning('No trips matched. Returning fallback.');
+
+                $trips = Trip::whereHas('vehicle', function ($q) {
+                        $q->where('is_instant', false);
+                    })
+                    ->where('shipment_type', $shipmentType)
+                    ->where('status', Trip::STATUS_PENDING)
+                    ->whereRaw("STR_TO_DATE(CONCAT(date, ' ', time), '%Y-%m-%d %H:%i:%s') >= ?", [now()])
+                    ->when($shipmentType === 'group' && $capacity, function ($query) use ($capacity) {
+                        return $query->where('available_capacity', '>=', (float) $capacity);
+                    })
+                    ->get();
+            }
+
+
+            return response()->json($trips);
         }
 
-        $trips = $query->get();
-        \Log::info('Matching trips count:', ['count' => $trips->count()]);
-
-        if ($trips->isEmpty()) {
-            \Log::warning('No trips matched. Returning fallback.');
-            $trips = Trip::whereDate('date', '>=', now())->get();
-        }
-
-        return response()->json($trips);
-    }
 
     public function tripBookings(Request $request, $id)
     {

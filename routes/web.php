@@ -39,4 +39,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 
     // Logout
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+
+    Route::get('/payments', [AdminController::class, 'payments'])->name('payments.index');
+    Route::put('/pricing', [AdminController::class, 'updatePricing'])->name('pricing.update');
+    
+
 });

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash; // Import Hash
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 
@@ -68,6 +70,54 @@ class UserController extends Controller
             'success' => true,
             'message' => 'Profile updated successfully.',
             'data' => $user
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        // Validate the input
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'new_password' => [
+                'required',
+                'string',
+                'min:8', // Minimum length of 8 characters
+                'confirmed', // Confirm the new password matches
+                Password::min(8)
+                    ->mixedCase()  // At least one uppercase letter
+                    ->numbers()  // At least one number
+                    ->symbols()  // At least one special character
+            ],
+        ]);
+
+        // Check if validation fails
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        // Get the authenticated user
+        $user = Auth::user();
+
+        // Check if the current password matches
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['error' => 'Current password is incorrect.'], 400);
+        }
+
+        // Check if the new password is the same as the old password
+        if (Hash::check($request->new_password, $user->password)) {
+            return response()->json(['error' => 'You cannot use your old password as the new password.'], 422);
+        }
+
+        // Update the password
+        $user->password = Hash::make($request->new_password); // Hash the new password
+        $user->save(); // Save the updated password to the database
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password updated successfully.',
         ]);
     }
     

@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\API\PriceSettingController;
 
 use App\Http\Controllers\API\VehicleController;
 use App\Http\Controllers\API\TripController;
@@ -13,6 +15,7 @@ use App\Http\Controllers\API\BookingController;
 use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\Auth\NewPasswordController;
+
 
 
 
@@ -71,9 +74,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/bookings/{id}', [BookingController::class, 'destroy']);
     Route::put('/bookings/{id}', [BookingController::class, 'updateBooking']);
 
-
-
-
+    Route::post('/khalti/initiate', [PaymentController::class, 'initiate']);
+    Route::post('/khalti/lookup', [PaymentController::class, 'lookup'])->name('khalti.mobile.verify');
 
 
 
@@ -82,7 +84,33 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [UserController::class, 'getProfile']);
 
     Route::post('/profile/update', [UserController::class, 'updateProfile']);
+
+    Route::post('/profile/change-password', [UserController::class, 'changePassword']);
+
+    //priceSetting
+    Route::get('/pricing', [PriceSettingController::class, 'getPricing']);
+
+
+    //earning
+    Route::get('/earnings', [BookingController::class, 'earnings']);
+    Route::put('/bookings/{id}/mark-paid', function (Request $request, $id) {
+    $booking = \App\Models\Booking::with('trip')->findOrFail($id);
+
+    if (
+        $booking->payment_mode === 'cash' &&
+        $booking->trip &&
+        $booking->trip->user_id === $request->user()->id
+    ) {
+        $booking->is_paid = true;
+        $booking->save();
+        return response()->json(['message' => 'Marked as paid']);
+    }
+
+    return response()->json(['error' => 'Unauthorized or not cash payment'], 403);
 });
+
+});
+
 
 // ==========================
 // 🔍 Trip Search (Public access)
