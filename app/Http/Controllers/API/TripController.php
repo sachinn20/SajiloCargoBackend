@@ -178,16 +178,66 @@ class TripController extends Controller
     $trip->status = $request->status;
     $trip->save();
 
-    // 🟢 Reset vehicle status if trip is completed & vehicle is instant
+    // ✅ Update vehicle distance and maintenance status
     if ($request->status === 'completed') {
         $vehicle = Vehicle::find($trip->vehicle_id);
-        if ($vehicle && $vehicle->is_instant) {
-            $vehicle->status = 'available';
-            $vehicle->save();
+
+        if ($vehicle) {
+            $fromCoords = $this->getCoordinates($trip->from_location);
+            $toCoords = $this->getCoordinates($trip->to_location);
+
+            if ($fromCoords && $toCoords) {
+                $distance = $this->haversine($fromCoords, $toCoords);
+
+                \Log::info('Trip distance calculated', [
+                    'trip_id' => $trip->id,
+                    'from' => $trip->from_location,
+                    'to' => $trip->to_location,
+                    'distance_km' => $distance,
+                ]);
+
+                $vehicle->total_distance_travelled += $distance;
+
+                $nextThreshold = $vehicle->last_maintenance_at_distance + $vehicle->maintenance_threshold_km;
+
+                if ($vehicle->total_distance_travelled >= $nextThreshold) {
+                    $vehicle->maintenance_status = 'not_maintained';
+
+                    \App\Models\Notification::create([
+                        'user_id' => $vehicle->user_id,
+                        'actor_id' => $user->id,
+                        'title' => 'Maintenance Required',
+                        'message' => "Vehicle {$vehicle->plate} needs maintenance after completing {$vehicle->total_distance_travelled} km.",
+                    ]);
+                }
+
+                $vehicle->save();
+
+                \Log::info('Vehicle updated after trip completion', [
+                    'vehicle_id' => $vehicle->id,
+                    'new_total_distance' => $vehicle->total_distance_travelled,
+                ]);
+            } else {
+                \Log::warning('Coordinate fetch failed for trip', [
+                    'trip_id' => $trip->id,
+                    'from' => $trip->from_location,
+                    'to' => $trip->to_location,
+                ]);
+            }
+
+            if ($vehicle->is_instant) {
+                $vehicle->status = 'available';
+                $vehicle->save();
+            }
+        } else {
+            \Log::error('Vehicle not found for trip completion', [
+                'trip_id' => $trip->id,
+                'vehicle_id' => $trip->vehicle_id,
+            ]);
         }
     }
 
-    // 🟡 Sync booking statuses
+    // 🔄 Sync booking statuses (excluding rejected)
     Booking::where('trip_id', $trip->id)
         ->whereNotIn('status', ['rejected'])
         ->update(['status' => $trip->status]);
@@ -197,5 +247,37 @@ class TripController extends Controller
         'trip' => $trip
     ]);
 }
+
+
+
+private function getCoordinates($place)
+{
+    $response = \Illuminate\Support\Facades\Http::get("https://nominatim.openstreetmap.org/search", [
+        'q' => $place,
+        'format' => 'json'
+    ]);
+
+    $data = $response->json()[0] ?? null;
+    return $data ? ['lat' => $data['lat'], 'lon' => $data['lon']] : null;
+}
+
+private function haversine($coord1, $coord2)
+{
+    $lat1 = deg2rad($coord1['lat']);
+    $lon1 = deg2rad($coord1['lon']);
+    $lat2 = deg2rad($coord2['lat']);
+    $lon2 = deg2rad($coord2['lon']);
+
+    $dlat = $lat2 - $lat1;
+    $dlon = $lon2 - $lon1;
+
+    $a = pow(sin($dlat / 2), 2) +
+         cos($lat1) * cos($lat2) * pow(sin($dlon / 2), 2);
+
+    $c = 2 * asin(sqrt($a));
+    return 6371 * $c; // distance in KM
+}
+
+
 
 }

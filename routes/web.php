@@ -3,11 +3,13 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PaymentController  ;
 
 // Redirect root URL to admin login
 Route::get('/', function () {
     return redirect()->route('admin.login');
 });
+Route::get('/verify-payment', [PaymentController::class, 'verifyAndRedirect']);
 
 // =============================
 // Admin Auth Routes

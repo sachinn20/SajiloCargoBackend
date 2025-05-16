@@ -11,9 +11,24 @@ use Illuminate\Support\Facades\DB;
 class VehicleController extends Controller
 {
     public function index(Request $request)
-    {
-        return Vehicle::where('user_id', $request->user()->id)->get();
-    }
+{
+    $vehicles = Vehicle::where('user_id', $request->user()->id)->get();
+
+    $vehicles = $vehicles->map(function ($v) {
+        $remaining = max(
+            0,
+            ($v->maintenance_threshold_km + $v->last_maintenance_at_distance) - $v->total_distance_travelled
+        );
+
+        $v->kms_remaining_to_maintenance = $remaining;
+        $v->maintenance_due = $remaining < 100;
+
+        return $v;
+    });
+
+    return response()->json($vehicles);
+}
+
 
     public function store(Request $request)
     {
@@ -122,4 +137,19 @@ class VehicleController extends Controller
 
         return response()->json($vehicles);
     }
+
+    public function markAsMaintained(Request $request, $id)
+{
+    $vehicle = Vehicle::where('id', $id)
+        ->where('user_id', $request->user()->id)
+        ->firstOrFail();
+
+    $vehicle->maintenance_status = 'maintained';
+    $vehicle->last_maintenance_at_distance = $vehicle->total_distance_travelled;
+    $vehicle->save();
+
+    return response()->json(['message' => 'Vehicle marked as maintained.']);
+}
+
+
 }

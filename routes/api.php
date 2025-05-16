@@ -77,6 +77,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/khalti/initiate', [PaymentController::class, 'initiate']);
     Route::post('/khalti/lookup', [PaymentController::class, 'lookup'])->name('khalti.mobile.verify');
 
+    Route::post('/instant-trip/complete', [BookingController::class, 'completeInstantTrip']);
+    Route::post('/vehicles/{id}/maintain', [VehicleController::class, 'markAsMaintained']);
+
 
 
     // 👤 User Profile

@@ -118,5 +118,39 @@
                 return response()->json(['error' => 'An unexpected error occurred during lookup.'], 500);
             }
         }
+        public function verifyAndRedirect(Request $request)
+{
+    $pidx = $request->query('pidx');
+    $bookingId = $request->query('booking_id');
+
+    if (!$pidx || !$bookingId) {
+        return response('Invalid payment verification request.', 400);
+    }
+
+    // Do the lookup logic
+    $res = Http::withoutVerifying()->withHeaders([
+        'Authorization' => 'Key df14ea32f8a14f798fb2cac788e2bda2',
+    ])->post('https://dev.khalti.com/api/v2/epayment/lookup/', [
+        'pidx' => $pidx,
+    ]);
+
+    if ($res->successful() && $res['status'] === 'Completed') {
+        $booking = Booking::find($bookingId);
+        if ($booking) {
+            $booking->update([
+                'is_paid' => true,
+                'payment_mode' => 'khalti',
+                'khalti_transaction_id' => $res['transaction_id'],
+            ]);
+        }
+
+        // ✅ Redirect to your mobile app using deep linking
+        return redirect()->away("sajilocargo://payment-success?booking_id={$bookingId}");
+    }
+
+    // ❌ If failed
+    return redirect()->away("sajilocargo://payment-failure?booking_id={$bookingId}");
+}
+
         
     }

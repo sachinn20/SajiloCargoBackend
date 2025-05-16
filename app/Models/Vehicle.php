@@ -19,6 +19,10 @@ class Vehicle extends Model
         'status',
         'latitude',
         'longitude',
+        'total_distance_travelled',
+        'maintenance_threshold_km',
+        'maintenance_status',
+        'last_maintenance_at_distance',
     ];
 
     // ✅ Relationship: Vehicle belongs to a User

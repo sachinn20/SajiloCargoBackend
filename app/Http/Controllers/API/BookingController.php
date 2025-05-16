@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Trip;
 use App\Models\Vehicle;
 use App\Models\Notification;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class BookingController extends Controller
@@ -146,6 +147,68 @@ class BookingController extends Controller
                 'trip' => $trip,
             ]);
     }
+
+    public function completeInstantTrip(Request $request)
+{
+    $request->validate([
+        'booking_id' => 'required|exists:bookings,id',
+    ]);
+
+    $user = $request->user();
+    $booking = Booking::with('trip')->findOrFail($request->booking_id);
+
+    if (!$booking->trip || $booking->trip->user_id !== $user->id) {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+
+    if ($booking->status === 'completed') {
+        return response()->json(['message' => 'Trip already completed.'], 400);
+    }
+
+    // ✅ Mark both booking and trip as completed
+    $booking->status = 'completed';
+    $booking->save();
+
+    $trip = $booking->trip;
+    $trip->status = 'completed';
+    $trip->save();
+
+    // ✅ Vehicle logic
+    $vehicle = Vehicle::find($trip->vehicle_id);
+    if ($vehicle) {
+        $fromCoords = $this->getCoordinates($trip->from_location);
+        $toCoords = $this->getCoordinates($trip->to_location);
+
+        if ($fromCoords && $toCoords) {
+            $distance = $this->haversine($fromCoords, $toCoords);
+            $vehicle->total_distance_travelled += $distance;
+
+            if ($vehicle->total_distance_travelled >= $vehicle->maintenance_threshold_km) {
+                $vehicle->maintenance_status = 'not_maintained';
+
+                Notification::create([
+                    'user_id' => $vehicle->user_id,
+                    'actor_id' => $user->id,
+                    'title' => 'Maintenance Required',
+                    'message' => "Your vehicle ({$vehicle->plate}) has reached {$vehicle->total_distance_travelled} km and needs maintenance."
+                ]);
+            }
+
+            // Instant vehicles go back to available
+            if ($vehicle->is_instant) {
+                $vehicle->status = 'available';
+            }
+
+            $vehicle->save();
+        }
+    }
+
+    return response()->json([
+        'message' => 'Instant trip completed, vehicle updated.',
+        'booking' => $booking
+    ]);
+}
+
 
 
     public function received(Request $request)
@@ -304,6 +367,35 @@ class BookingController extends Controller
         }),
     ]);
 }
+
+private function getCoordinates($place)
+{
+    $response = Http::get("https://nominatim.openstreetmap.org/search", [
+        'q' => $place,
+        'format' => 'json'
+    ]);
+
+    $data = $response->json()[0] ?? null;
+    return $data ? ['lat' => $data['lat'], 'lon' => $data['lon']] : null;
+}
+
+private function haversine($coord1, $coord2)
+{
+    $lat1 = deg2rad($coord1['lat']);
+    $lon1 = deg2rad($coord1['lon']);
+    $lat2 = deg2rad($coord2['lat']);
+    $lon2 = deg2rad($coord2['lon']);
+
+    $dlat = $lat2 - $lat1;
+    $dlon = $lon2 - $lon1;
+
+    $a = pow(sin($dlat / 2), 2) +
+         cos($lat1) * cos($lat2) * pow(sin($dlon / 2), 2);
+
+    $c = 2 * asin(sqrt($a));
+    return 6371 * $c; // Earth radius in KM
+}
+
 
 
 }
