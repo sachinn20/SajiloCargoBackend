@@ -16,6 +16,8 @@ use App\Http\Controllers\API\UserController;
 use App\Http\Controllers\API\NotificationController;
 use App\Http\Controllers\Auth\NewPasswordController;
 
+use App\Http\Controllers\ChatbotController;
+
 
 
 
@@ -61,6 +63,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    
+    //chstbot
+    Route::post('/chatbot', [ChatbotController::class, 'respond']);
+    Route::get('/chatbot/history', [ChatbotController::class, 'history']);
+
 
    // 📦 Bookings
     Route::post('/bookings', [BookingController::class, 'store']);
